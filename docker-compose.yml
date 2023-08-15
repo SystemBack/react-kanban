@@ -1,0 +1,9 @@
+services:
+  web:
+    container_name: react-kanban
+    volumes:
+      - "./:/app"
+    build: .
+    tty: true
+    ports:
+      - 80:3000
