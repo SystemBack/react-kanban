@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react'
 import PlusIcon from '../icons/PlusIcon'
-import { Column, Id } from '../types';
+import { Column, Id, Task } from '../types';
 import ColumnContainer from './ColumnContainer';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove } from '@dnd-kit/sortable';
 import { createPortal } from 'react-dom';
+import { COLUMN_KEY_TEXT } from '../utils/constants';
 
 
 
 function KanbanBoard() {
     const [columns, setColumns] = useState<Column[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [activeColumn, setActiveColumn] = useState<Column | null>(null);
+    const columnsId = useMemo(() => columns.map((col) => col.id), [columns]);
 
     const sensors = useSensors(
             useSensor(PointerSensor, {
@@ -35,14 +38,66 @@ function KanbanBoard() {
 
     const handleDeleteColumn = (id: Id) => {
         const filteredColumns = columns.filter((col) => col.id !== id);
+
         setColumns(filteredColumns);
     };
 
-    const columnsId = useMemo(() => columns.map((col) => col.id), [columns]);
+    const handleChangeColumn = (id: Id, title: string) => {
+        const newColumns = columns.map((col) => {
+            if (col.id !== id) return;
+            return {...col, title};
+        });
+
+        setColumns(newColumns);
+    };
+
+    const handleCreateTask = (id: Id) => {
+        const newTask: Task = {
+            id: generateId(),
+            columnId: id,
+            content: `Task ${tasks.length +1}`,
+        }
+
+        setTasks([...tasks, newTask]);
+    };
+
+    const handleDeleteTask = (taskId: Id) => {
+        const filteredTasks = tasks.filter((task) => task.id !== taskId);
+
+        setTasks(filteredTasks);
+    }
+
+    const handleChangeTask = (id: Id, content: string) => {
+        const newTasks = tasks.map((task) => {
+            if (task.id !== id) return task;
+            return{...task, content};
+        });
+
+        setTasks(newTasks)
+    }
+
+    const createColumnComponent = (column: Column) =>  {
+        return (
+            <ColumnContainer
+                key={column.id}
+                column={column}
+                tasks={filterTaskByColumn(column.id)}
+                handleDeleteColumn={handleDeleteColumn}
+                handleChangeColumn={handleChangeColumn}
+                handleCreateTask={handleCreateTask}
+                handleDeleteTask={handleDeleteTask}
+                handleChangeTask={handleChangeTask}
+            />
+        );
+    }
+
+    const filterTaskByColumn = (columId: Id) => {
+        return tasks.filter((task) => task.columnId === columId);
+    }
 
     const handleOnColumnDragStart = (event: DragStartEvent) => {
         const current = event.active.data.current;
-        if (current?.type === 'Column') {
+        if (current?.type === COLUMN_KEY_TEXT) {
             setActiveColumn(current?.column);
         }
     };
@@ -85,10 +140,14 @@ function KanbanBoard() {
                     gab-4
                 '
                 >
-                    <div className='flex gap-4'>
-                    <SortableContext items={columnsId}>
-                        {columns.map((col) => <ColumnContainer key={col.id} column={col} handleDeleteColumn={handleDeleteColumn} />)}
-                    </SortableContext>
+                    <div
+                        className='
+                        flex
+                        gap-4
+                    '>
+                        <SortableContext items={columnsId}>
+                            {columns.map((col) => createColumnComponent(col))}
+                        </SortableContext>
                     </div>
                     <button
                         onClick={handleCreateNewColumn}
@@ -102,7 +161,7 @@ function KanbanBoard() {
                             border-2
                             border-columnBackgroundColor
                             p-4
-                            ring-rose-500
+                            ring-cyan-500
                             hover:ring-2
                             flex
                             gab-2
@@ -114,9 +173,7 @@ function KanbanBoard() {
                 </div>
                 {createPortal(
                     <DragOverlay>
-                        {activeColumn && (
-                            <ColumnContainer column={activeColumn} handleDeleteColumn={handleCreateNewColumn}/>
-                        )}
+                        {activeColumn && createColumnComponent(activeColumn)}
                     </DragOverlay>,
                     document.body
                 )}
